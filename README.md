@@ -8,7 +8,7 @@ This repository contains the companion code and blog post for building productio
 |------|-------------|
 | `blog_bigquery_langgraph.md` | Full Medium blog post: step-by-step guide to instrumenting LangGraph agents with BigQuery |
 | `demo_travel_agent.py` | Working travel assistant agent with 3 tools that logs all events to BigQuery |
-| `blog-post.md` | Blog post: advocating for BigQuery Agent Analytics in Agent Starter Pack |
+| `agent-start-pack-blog.md` | Blog post: advocating for BigQuery Agent Analytics in Agent Starter Pack |
 
 ## Quick start
 
@@ -58,7 +58,7 @@ ORDER BY timestamp
 
 ## Agent Starter Pack + BigQuery Agent Analytics
 
-The `blog-post.md` file covers enabling BigQuery Agent Analytics in [Agent Starter Pack](https://github.com/GoogleCloudPlatform/agent-starter-pack) with the `--bq-analytics` CLI flag. It walks through:
+The `agent-start-pack-blog.md` file covers enabling BigQuery Agent Analytics in [Agent Starter Pack](https://github.com/GoogleCloudPlatform/agent-starter-pack) with the `--bq-analytics` CLI flag. It walks through:
 
 - What the ADK plugin captures (event types, schema, token usage)
 - Why production agents need structured observability
