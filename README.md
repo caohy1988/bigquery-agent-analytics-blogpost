@@ -8,6 +8,7 @@ This repository contains the companion code and blog post for building productio
 |------|-------------|
 | `blog_bigquery_langgraph.md` | Full Medium blog post: step-by-step guide to instrumenting LangGraph agents with BigQuery |
 | `demo_travel_agent.py` | Working travel assistant agent with 3 tools that logs all events to BigQuery |
+| `agent-start-pack-blog.md` | Blog post: advocating for BigQuery Agent Analytics in Agent Starter Pack |
 
 ## Quick start
 
@@ -55,9 +56,26 @@ ORDER BY timestamp
 - Production configuration patterns for high-throughput deployments
 - Async support with `AsyncBigQueryCallbackHandler`
 
+## Agent Starter Pack + BigQuery Agent Analytics
+
+The `agent-start-pack-blog.md` file covers enabling BigQuery Agent Analytics in [Agent Starter Pack](https://github.com/GoogleCloudPlatform/agent-starter-pack) with the `--bq-analytics` CLI flag. It walks through:
+
+- What the ADK plugin captures (event types, schema, token usage)
+- Why production agents need structured observability
+- Step-by-step setup: project generation, local testing, Cloud Run deployment
+- SQL query examples for cost tracking, debugging, and behavior analysis
+- Advanced configuration (event filtering, multimodal content, batching)
+- Dashboard setup with Looker Studio
+
+**Target audience:** Agent Starter Pack users who want to add production-grade observability to their agents.
+
 ## Related resources
 
+- [Agent Starter Pack](https://github.com/GoogleCloudPlatform/agent-starter-pack)
+- [ADK Documentation](https://google.github.io/adk-docs/)
 - [BigQuery Agent Analytics plugin docs](https://cloud.google.com/bigquery/docs/agent-analytics)
+- [BigQuery Agent Analytics Codelab](https://codelabs.developers.google.com/adk-bigquery-agent-analytics-plugin)
 - [ADK + BigQuery Codelab](https://codelabs.developers.google.com/codelabs/adk-bigquery-agent-analytics)
 - [BigQuery Storage Write API](https://cloud.google.com/bigquery/docs/write-api)
 - [LangGraph documentation](https://langchain-ai.github.io/langgraph/)
+- [Introducing BigQuery Agent Analytics — Google Cloud Blog](https://cloud.google.com/blog/products/data-analytics/introducing-bigquery-agent-analytics)
