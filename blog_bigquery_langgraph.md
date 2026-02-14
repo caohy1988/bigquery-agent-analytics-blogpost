@@ -364,16 +364,85 @@ config = BigQueryLoggerConfig(
 )
 ```
 
-**Multimodal agents** — offload large content to GCS:
+**Multimodal agents** — log images, audio, and video alongside text:
 
 ```python
 config = BigQueryLoggerConfig(
-    gcs_bucket_name="my-agent-logs",
+    log_multi_modal_content=True,       # Enable content_parts with MIME types
+    gcs_bucket_name="my-agent-logs",    # Optional: offload large media to GCS
     connection_id="us.my-bq-connection",
     max_content_length=500 * 1024,
-    log_multi_modal_content=True,
 )
 ```
+
+---
+
+## Bonus: Multimodal agent observability
+
+Modern agents don't just process text — they analyze images, interpret documents, and reason over mixed media. The callback handler captures multimodal content automatically, so you can track exactly what your agent *sees*.
+
+### Sending an image to a LangGraph agent
+
+Pass images via `HumanMessage` with `image_url` content parts:
+
+```python
+from langchain_core.messages import HumanMessage
+
+# Base64-encoded image
+multimodal_message = HumanMessage(
+    content=[
+        {"type": "text", "text": "What landmark is this? Look it up and give me travel tips."},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,iVBOR..."}},
+    ]
+)
+
+async with handler.graph_context("multimodal_agent", metadata=metadata):
+    result = await agent.ainvoke(
+        {"messages": [multimodal_message]},
+        config={"callbacks": [handler], "metadata": metadata},
+    )
+```
+
+### What gets logged for multimodal requests
+
+Here's the real trace from our multimodal travel agent — it received a PNG image of the Eiffel Tower, identified the landmark, and called two tools:
+
+| Timestamp | Event Type | Tool | Latency | Content Parts |
+|-----------|-----------|------|---------|---------------|
+| 05:18:06 | `GRAPH_START` | — | — | 1 (text) |
+| 05:18:06 | `LLM_REQUEST` | — | — | **2 (text + image/jpeg)** |
+| 05:18:08 | `LLM_RESPONSE` | — | 2,517ms | 1 (tool calls) |
+| 05:18:08 | `TOOL_STARTING` | lookup_landmark | — | 0 |
+| 05:18:08 | `TOOL_STARTING` | get_travel_tips | — | 0 |
+| 05:18:08 | `NODE_COMPLETED` (tools) | — | 4ms | 1 |
+| 05:18:08 | `LLM_REQUEST` | — | — | **5 (text + image + tool results)** |
+| 05:18:10 | `LLM_RESPONSE` | — | 1,692ms | 1 (final answer) |
+| 05:18:10 | `GRAPH_END` | — | **5,824ms** | 1 |
+
+*Real data from a live multimodal run. The agent identified the Eiffel Tower from a 200x150 PNG, looked up landmark facts, and returned travel tips — all in 5.8 seconds.*
+
+The key column is **Content Parts**: the first `LLM_REQUEST` has 2 parts (text query + image), while the second has 5 parts (original text + image + two tool results + AI response). Each part is logged with its MIME type and storage mode.
+
+### Querying multimodal content in BigQuery
+
+The `content_parts` field is a `REPEATED RECORD` with `mime_type`, `storage_mode`, `text`, and `uri` columns. Query it to find all image-containing events:
+
+```sql
+SELECT
+    timestamp, event_type,
+    ARRAY_LENGTH(content_parts) AS num_parts,
+    (SELECT cp.mime_type FROM UNNEST(content_parts) cp
+     WHERE cp.mime_type LIKE 'image/%' LIMIT 1) AS image_type,
+    (SELECT cp.storage_mode FROM UNNEST(content_parts) cp
+     WHERE cp.mime_type LIKE 'image/%' LIMIT 1) AS storage_mode
+FROM `your-project.agent_analytics.agent_events_v2`
+WHERE EXISTS (
+    SELECT 1 FROM UNNEST(content_parts) cp WHERE cp.mime_type LIKE 'image/%'
+)
+ORDER BY timestamp DESC LIMIT 10;
+```
+
+Without GCS configured, images are stored as `[BASE64 IMAGE]` placeholders with `INLINE` storage mode. With GCS offloading enabled (`gcs_bucket_name`), images are uploaded to Cloud Storage and the `uri` field contains a `gs://` reference — keeping BigQuery rows lightweight while preserving full media access.
 
 ---
 
