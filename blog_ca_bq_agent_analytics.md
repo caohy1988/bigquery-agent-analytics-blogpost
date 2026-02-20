@@ -303,6 +303,10 @@ Want to try this yourself? Here's what you need:
 2. A [BigQuery Cloud Resource Connection](https://cloud.google.com/bigquery/docs/create-cloud-resource-connection) for calling Gemini from SQL
 3. The companion notebook: [NY_City_Bike_Agent_Logging.ipynb](https://github.com/haiyuan-eng-google/demo_BQ_agent_analytics_plugin_notebook/blob/main/NY_City_Bike_Agent_Logging.ipynb)
 
+**Important:** Before using the BigQuery Agent Analytics Plugin or Conversational Analytics, make sure you have the correct **IAM permissions** configured. Check the official documentation for the required roles and permissions:
+- [BigQuery Agent Analytics Plugin — setup & IAM](https://google.github.io/adk-docs/integrations/bigquery-agent-analytics/)
+- [Conversational Analytics — setup & IAM](https://cloud.google.com/bigquery/docs/conversational-analytics)
+
 The notebook runs top-to-bottom in Colab, Vertex AI Workbench, or BigQuery Studio. It's fully self-contained — it creates the agent, runs it, generates events, sets up the CA Data Agent, and walks through every analysis pattern described in this post.
 
 The Conversational Analytics API is **free during Preview**, so there's no additional cost to try the NL querying side.
