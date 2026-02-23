@@ -1,4 +1,4 @@
-# BigQuery Agent Analytics + Conversational Analytics: A Closed-Loop for AI Agent Operations
+# The “Closed Loop” for Agent Observability and Analysis: Connecting ADK, BigQuery, and Conversational Analytics
 
 *How to instrument, log, and analyze your AI agent's behavior using nothing but BigQuery — and then query those logs with natural language.*
 
@@ -12,8 +12,8 @@ What if I told you that BigQuery can handle the *entire* loop — from capturing
 
 In this post, I'll walk you through a **closed-loop integration** that connects two powerful BigQuery capabilities:
 
-1. **[BigQuery Agent Analytics Plugin](https://google.github.io/adk-docs/integrations/bigquery-agent-analytics/)** — automatically logs every agent event (user messages, LLM calls, tool executions) into a BigQuery table
-2. **[Conversational Analytics (CA)](https://cloud.google.com/bigquery/docs/conversational-analytics)** — lets you query that same table using natural language, with the CA Data Agent writing SQL, returning results, and generating insights for you
+1. [**BigQuery Agent Analytics Plugin**](https://google.github.io/adk-docs/integrations/bigquery-agent-analytics/) — automatically logs every agent event (user messages, LLM calls, tool executions) into a BigQuery table  
+2. [**Conversational Analytics (CA)**](https://cloud.google.com/bigquery/docs/conversational-analytics) — lets you query that same table using natural language, with the CA Data Agent writing SQL, returning results, and generating insights for you
 
 The result is a workflow that looks like this:
 
@@ -21,26 +21,27 @@ The result is a workflow that looks like this:
 Agent runs → BQ AA Plugin auto-logs events → BQ Table → CA Data Agent → Natural Language Insights
 ```
 
-No external observability stack. No manual dashboard building. Just BigQuery.
+“No external observability stack. No manual dashboard building. Just BigQuery.”
 
 ## Prerequisites
 
 Before diving in, make sure you have the following set up:
 
-```bash
+```shell
 pip install google-adk google-cloud-bigquery google-cloud-geminidataanalytics
 ```
 
 You'll also need:
 
-- A **Google Cloud project** with billing enabled
-- The following **APIs enabled**: BigQuery, BigQuery Connection, Vertex AI, and Conversational Analytics
-- A **[BigQuery Cloud Resource Connection](https://cloud.google.com/bigquery/docs/create-cloud-resource-connection)** (e.g., `us-central1.bqml_connection`) — this is what allows BigQuery to call Gemini models from SQL for functions like `AI.CLASSIFY` and `AI.GENERATE`
+- A **Google Cloud project** with billing enabled  
+- The following **APIs enabled**: BigQuery, BigQuery Connection, Vertex AI, and Conversational Analytics  
+- A [**BigQuery Cloud Resource Connection**](https://cloud.google.com/bigquery/docs/create-cloud-resource-connection) (e.g., `us-central1.bqml_connection`) — this is what allows BigQuery to call Gemini models from SQL for functions like `AI.CLASSIFY` and `AI.GENERATE`  
 - **Authentication**: `google.colab.auth.authenticate_user()` in Colab, or [Application Default Credentials](https://cloud.google.com/docs/authentication/provide-credentials-adc) elsewhere
 
-> **IAM note:** Before using the BigQuery Agent Analytics (BQ AA) Plugin or Conversational Analytics (CA), make sure you have the correct IAM permissions configured. Check the official docs:
-> - [BQ AA Plugin — setup & IAM](https://google.github.io/adk-docs/integrations/bigquery-agent-analytics/)
-> - [Conversational Analytics — setup & IAM](https://cloud.google.com/bigquery/docs/conversational-analytics)
+**IAM note:** Before using the BigQuery Agent Analytics (BQ AA) Plugin or Conversational Analytics (CA), make sure you have the correct IAM permissions configured. Check the official docs:
+
+- [BQ AA Plugin — setup & IAM](https://google.github.io/adk-docs/integrations/bigquery-agent-analytics/)  
+- [Conversational Analytics — setup & IAM](https://cloud.google.com/bigquery/docs/conversational-analytics)
 
 ## What we're building
 
@@ -48,13 +49,13 @@ We'll use a real agent — `my_bq_agent` — built with Google ADK's `BigQueryTo
 
 The **BigQuery Agent Analytics Plugin** captures all of this automatically. And then we point **Conversational Analytics** at the resulting event log table to unlock natural language analysis.
 
-Here's the full companion notebook if you want to follow along: [NY_City_Bike_Agent_Logging.ipynb](https://github.com/haiyuan-eng-google/demo_BQ_agent_analytics_plugin_notebook/blob/main/NY_City_Bike_Agent_Logging.ipynb)
+Here's the full companion notebook if you want to follow along: [NY\_City\_Bike\_Agent\_Logging.ipynb](https://github.com/haiyuan-eng-google/demo_BQ_agent_analytics_plugin_notebook/blob/main/NY_City_Bike_Agent_Logging.ipynb)
 
 ## Step 1: Build and instrument your agent
 
 First, we create an ADK agent. An `Agent` in ADK is defined by a model (the LLM it uses), an instruction (its system prompt), and a set of tools it can call:
 
-```python
+```py
 from google.adk.agents import Agent
 from google.adk.models.google_llm import Gemini
 from google.adk.tools.bigquery import BigQueryCredentialsConfig, BigQueryToolset
@@ -79,7 +80,7 @@ root_agent = Agent(
 
 Now, instrumenting this agent with the BQ AA Plugin is a single line — just pass it as a plugin when creating the `App`:
 
-```python
+```py
 from google.adk.apps import App
 from google.adk.plugins.bigquery_agent_analytics_plugin import BigQueryAgentAnalyticsPlugin
 
@@ -104,7 +105,7 @@ The resulting table captures a rich schema: `timestamp`, `event_type`, `session_
 
 To make this self-contained, we run the agent with sample queries from multiple simulated users:
 
-```python
+```py
 from google.adk.runners import InMemoryRunner
 
 runner = InMemoryRunner(app=app)
@@ -140,7 +141,7 @@ After running these, we wait 30 seconds for BigQuery streaming writes to flush, 
 Each event type represents a step in the agent's lifecycle:
 
 | Event type | What it means |
-|:---|:---|
+| :---- | :---- |
 | `USER_MESSAGE_RECEIVED` | A user sent a message to the agent |
 | `INVOCATION_STARTING` | The agent began processing a user request |
 | `LLM_REQUEST` | The agent sent a prompt to the Gemini model |
@@ -158,7 +159,7 @@ Here's where it gets interesting. Instead of writing all our analysis queries by
 
 First, initialize the CA SDK clients. The CA API uses a `"global"` location (different from the regional location used for BigQuery and Vertex AI):
 
-```python
+```py
 from google.cloud import geminidataanalytics
 
 # Two clients: one manages Data Agents, the other handles conversations
@@ -169,7 +170,7 @@ CA_LOCATION = "global"  # CA API always uses global
 
 We also define two helper functions that we'll use throughout the blog to interact with the CA agent:
 
-```python
+```py
 def ca_ask(question):
     """Send a natural language question to the CA Data Agent."""
     messages = [
@@ -212,7 +213,7 @@ def display_ca_response(responses):
 
 Now, create the CA Data Agent. The key is giving it enough context — schema descriptions, glossary terms, and verified queries:
 
-```python
+```py
 from google.cloud import geminidataanalytics
 
 # Point CA at our BQ AA Plugin's event log table
@@ -241,7 +242,7 @@ bq_table_ref = geminidataanalytics.BigQueryTableReference(
 
 We also define **glossary terms** so the CA agent understands domain-specific vocabulary like "invocation" and "session":
 
-```python
+```py
 glossary_terms = [
     geminidataanalytics.GlossaryTerm(
         display_name="event_type",
@@ -258,7 +259,7 @@ glossary_terms = [
 
 And **verified queries** — pre-validated SQL that guides the CA agent for common analysis patterns. These are important: without them, the CA agent may generate incorrect SQL for domain-specific schemas (like the JSON fields `content` and `latency_ms` in our event table). By providing example question-to-SQL pairs, you teach the CA agent the correct query patterns for your data:
 
-```python
+```py
 example_queries = [
     geminidataanalytics.ExampleQuery(
         natural_language_question="Show usage monitoring — daily active users, "
@@ -271,7 +272,7 @@ example_queries = [
 
 Finally, we create the Data Agent and a conversation:
 
-```python
+```py
 ca_agent = data_agent_client.create_data_agent_sync(request=create_request)
 ca_conversation = data_chat_client.create_conversation(request=conv_request)
 ```
@@ -301,7 +302,7 @@ ORDER BY usage_date DESC
 
 **Conversational Analytics:**
 
-```python
+```py
 responses = ca_ask("Show usage monitoring — daily active users, sessions, "
                    "invocations, and average latency")
 display_ca_response(responses)
@@ -338,13 +339,13 @@ Ask CA: *"Analyze performance by event type — show average, max, and p99 laten
 
 The CA agent generates the SQL, runs it, and explains the results:
 
-> **LLM Bottlenecks:** LLM_RESPONSE has an average latency of ~2.5 seconds, which is often the primary driver of perceived wait times for users.
->
-> **Long-Tail Latency:** While the average tool execution (TOOL_COMPLETED) is relatively fast at ~1.6 seconds, it has a massive maximum latency spike of ~23.3 seconds.
->
-> **Overall Cycle:** The average total time for an agent to complete a request (AGENT_COMPLETED) is approximately 7.3 seconds.
+**LLM Bottlenecks:** LLM\_RESPONSE has an average latency of \~2.5 seconds, which is often the primary driver of perceived wait times for users.
 
-Try extracting that kind of narrative from raw query results alone!
+**Long-Tail Latency:** While the average tool execution (TOOL\_COMPLETED) is relatively fast at \~1.6 seconds, it has a massive maximum latency spike of \~23.3 seconds.
+
+**Overall Cycle:** The average total time for an agent to complete a request (AGENT\_COMPLETED) is approximately 7.3 seconds.
+
+Try extracting that kind of narrative from raw query results alone\!
 
 ### High-latency questions
 
@@ -352,15 +353,15 @@ Ask CA: *"Which user questions took the longest to complete?"*
 
 The CA agent joins the `USER_MESSAGE_RECEIVED` events with `AGENT_COMPLETED` events on `invocation_id`, calculates latency, and explains what it finds:
 
-> **Complexity of Trends:** Queries asking for "trends" consistently appear as high-latency events. This is likely due to the agent having to perform multiple data retrievals and aggregation steps before responding.
->
-> **Optimization Opportunity:** The agent spends significant time on "discovery" questions. Optimizing metadata caching for these specific intents could reduce initial response latency by several seconds.
+**Complexity of Trends:** Queries asking for "trends" consistently appear as high-latency events. This is likely due to the agent having to perform multiple data retrievals and aggregation steps before responding.
+
+**Optimization Opportunity:** The agent spends significant time on "discovery" questions. Optimizing metadata caching for these specific intents could reduce initial response latency by several seconds.
 
 ## Step 5: Combine CA with BigQuery ML AI functions
 
 BigQuery's built-in AI functions — `AI.DETECT_ANOMALIES`, `AI.CLASSIFY`, `AI.GENERATE` — add another dimension to agent operations analysis.
 
-These functions call Gemini models directly from SQL. To use them, you need a **[Cloud Resource Connection](https://cloud.google.com/bigquery/docs/create-cloud-resource-connection)** — this is a BigQuery resource that securely connects to Vertex AI. You create it once, grant it the Vertex AI User IAM role, and then reference it in your SQL via the `connection_id` parameter. The `endpoint` parameter specifies which Gemini model to use (e.g., `gemini-2.5-flash`).
+These functions call Gemini models directly from SQL. To use them, you need a [**Cloud Resource Connection**](https://cloud.google.com/bigquery/docs/create-cloud-resource-connection) — this is a BigQuery resource that securely connects to Vertex AI. You create it once, grant it the Vertex AI User IAM role, and then reference it in your SQL via the `connection_id` parameter. The `endpoint` parameter specifies which Gemini model to use (e.g., `gemini-2.5-flash`).
 
 ### Anomaly detection
 
@@ -382,7 +383,7 @@ AI.CLASSIFY(
 ) AS ai_intent
 ```
 
-This reveals that **Data Exploration** is the most frequent intent (29 occurrences) with moderate latency (~6.7s), while **Trend Analysis** is less common but significantly slower (~17.1s average).
+This reveals that **Data Exploration** is the most frequent intent (29 occurrences) with moderate latency (\~6.7s), while **Trend Analysis** is less common but significantly slower (\~17.1s average).
 
 ### PII detection in agent responses
 
@@ -406,28 +407,28 @@ In our test run, no PII was found — which is exactly what you want to see from
 Each capability is useful on its own. But together, they create something greater than the sum of their parts:
 
 | Capability | BQ AA Plugin alone | CA alone | Both together |
-|:---|:---|:---|:---|
+| :---- | :---- | :---- | :---- |
 | **Event capture** | Automatic, zero-code | N/A | Automatic, zero-code |
 | **Ad-hoc analysis** | Manual SQL required | Natural language (NL) | NL for exploration, SQL for precision |
 | **Insights** | You interpret the data | Auto-generated | Auto-generated from your own agent's data |
 | **Onboarding** | Need SQL skills | Just ask questions | Anyone on your team can analyze agent behavior |
-| **AI-powered analysis** | Via BigQuery ML (BQML) functions in SQL | Built into CA responses | Both: BQML for custom analysis + CA for NL access |
+| **AI-powered analysis** | Via BigQuery ML (BQML) functions in SQL | Built into CA responses | Both: BQML for custom analysis \+ CA for NL access |
 
 The combination unlocks a workflow where:
 
-- **Engineers** use manual SQL for precise, custom queries — like PII detection with `AI.GENERATE` or anomaly detection with `AI.DETECT_ANOMALIES`
-- **Product managers** ask CA questions like *"What was the busiest hour for my agent?"* or *"Compare average latency between different users"*
-- **Security teams** query in natural language: *"Find users asking security-related questions"*
+- **Engineers** use manual SQL for precise, custom queries — like PII detection with `AI.GENERATE` or anomaly detection with `AI.DETECT_ANOMALIES`  
+- **Product managers** ask CA questions like *"What was the busiest hour for my agent?"* or *"Compare average latency between different users"*  
+- **Security teams** query in natural language: *"Find users asking security-related questions"*  
 - **Everyone** gets auto-generated insights without writing a single line of SQL
 
 ## The full closed loop
 
 Here's what we demonstrated end to end:
 
-1. **Agent runs** — `my_bq_agent` processes user requests using `BigQueryToolset` and Gemini
-2. **BQ AA Plugin auto-logs** — Every event (user message, LLM call, tool execution) is automatically streamed to BigQuery
-3. **Manual SQL analysis** — Traditional queries for full control over performance, error, and security analysis
-4. **CA Data Agent** — The same table is instantly queryable via natural language, with automatic insights
+1. **Agent runs** — `my_bq_agent` processes user requests using `BigQueryToolset` and Gemini  
+2. **BQ AA Plugin auto-logs** — Every event (user message, LLM call, tool execution) is automatically streamed to BigQuery  
+3. **Manual SQL analysis** — Traditional queries for full control over performance, error, and security analysis  
+4. **CA Data Agent** — The same table is instantly queryable via natural language, with automatic insights  
 5. **AI-powered analysis** — BigQuery ML functions (`AI.CLASSIFY`, `AI.GENERATE`, `AI.DETECT_ANOMALIES`) enrich both approaches
 
 All within BigQuery. No external observability platform. No separate data pipeline. No dashboard-building sprint.
@@ -436,7 +437,7 @@ All within BigQuery. No external observability platform. No separate data pipeli
 
 Want to try this yourself? See the [Prerequisites](#prerequisites) section above for setup, then grab the companion notebook:
 
-- [NY_City_Bike_Agent_Logging.ipynb](https://github.com/haiyuan-eng-google/demo_BQ_agent_analytics_plugin_notebook/blob/main/NY_City_Bike_Agent_Logging.ipynb)
+- [NY\_City\_Bike\_Agent\_Logging.ipynb](https://github.com/haiyuan-eng-google/demo_BQ_agent_analytics_plugin_notebook/blob/main/NY_City_Bike_Agent_Logging.ipynb)
 
 The notebook runs top-to-bottom in Colab, Vertex AI Workbench, or BigQuery Studio. It's fully self-contained — it creates the agent, runs it, generates events, sets up the CA Data Agent, and walks through every analysis pattern described in this post.
 
@@ -447,7 +448,7 @@ The Conversational Analytics API is **free during Preview**, so there's no addit
 If you're running through this for the first time, here are the most common issues and how to resolve them:
 
 | Issue | Cause | Fix |
-|:---|:---|:---|
+| :---- | :---- | :---- |
 | **No events appear in BigQuery after running the agent** | BigQuery streaming writes have a short delay before data is queryable | Wait 30–60 seconds after running the agent, then retry your query |
 | **`PermissionDenied` when creating the CA Data Agent** | Missing IAM roles for the Conversational Analytics API | Grant `roles/bigquery.dataViewer` and `roles/aiplatform.user` to your account. See the [CA setup docs](https://cloud.google.com/bigquery/docs/conversational-analytics) |
 | **`ALREADY_EXISTS` error when re-running the notebook** | CA Data Agents are soft-deleted with a 30-day retention period, so re-creating with the same ID fails | Use a unique ID per run (the notebook appends a UUID suffix automatically), or wait for the soft-delete retention to expire |
@@ -458,19 +459,19 @@ If you're running through this for the first time, here are the most common issu
 
 This is just the beginning. Some natural extensions:
 
-- **Automated alerting**: Use CA's streaming API to set up NL-triggered alerts (*"Notify me if error rate exceeds 5% in any 10-minute window"*)
-- **Multi-agent comparison**: Point the CA agent at event tables from multiple agents to compare performance across your fleet
-- **Embedding-based session analysis**: Use `ML.GENERATE_EMBEDDING` and `VECTOR_SEARCH` to find semantically similar user sessions (already demonstrated in the companion [ShopBot notebook](https://github.com/haiyuan-eng-google/demo_BQ_agent_analytics_plugin_notebook/blob/main/Demo_Plan_BigQuery_for_Agent_Ops_Unified_Platform_Public.ipynb))
+- **Automated alerting**: Use CA's streaming API to set up NL-triggered alerts (*"Notify me if error rate exceeds 5% in any 10-minute window"*)  
+- **Multi-agent comparison**: Point the CA agent at event tables from multiple agents to compare performance across your fleet  
+- **Embedding-based session analysis**: Use `ML.GENERATE_EMBEDDING` and `VECTOR_SEARCH` to find semantically similar user sessions (already demonstrated in the companion [ShopBot notebook](https://github.com/haiyuan-eng-google/demo_BQ_agent_analytics_plugin_notebook/blob/main/Demo_Plan_BigQuery_for_Agent_Ops_Unified_Platform_Public.ipynb))  
 - **Custom dashboards**: Feed CA-generated Vega-Lite chart specs into Looker or your preferred visualization layer
 
-The core insight is simple: if your agent's telemetry lives in BigQuery, you get the entire Google Cloud AI and analytics stack for free. And with Conversational Analytics, you don't even need SQL to use it.
+The core insight is simple: “if your agent's telemetry lives in BigQuery, you get the entire Google Cloud AI and analytics stack for free. And with Conversational Analytics, you don't even need SQL to use it.”
 
 ---
 
 ## References
 
-- **BigQuery Agent Analytics Plugin** — [Official documentation](https://google.github.io/adk-docs/integrations/bigquery-agent-analytics/)
-- **Conversational Analytics** — [Official documentation](https://cloud.google.com/bigquery/docs/conversational-analytics)
-- **Companion notebook** — [NY_City_Bike_Agent_Logging.ipynb on GitHub](https://github.com/haiyuan-eng-google/demo_BQ_agent_analytics_plugin_notebook/blob/main/NY_City_Bike_Agent_Logging.ipynb)
-- **Agent Development Kit (ADK)** — [ADK documentation](https://google.github.io/adk-docs/)
-- **BigQuery ML AI functions** — [AI.GENERATE](https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-generate), [AI.CLASSIFY](https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-classify), [AI.DETECT_ANOMALIES](https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-detect-anomalies)
+- **BigQuery Agent Analytics Plugin** — [Official documentation](https://google.github.io/adk-docs/integrations/bigquery-agent-analytics/)  
+- **Conversational Analytics** — [Official documentation](https://cloud.google.com/bigquery/docs/conversational-analytics)  
+- **Companion notebook** — [NY\_City\_Bike\_Agent\_Logging.ipynb on GitHub](https://github.com/haiyuan-eng-google/demo_BQ_agent_analytics_plugin_notebook/blob/main/NY_City_Bike_Agent_Logging.ipynb)  
+- **Agent Development Kit (ADK)** — [ADK documentation](https://google.github.io/adk-docs/)  
+- **BigQuery ML AI functions** — [AI.GENERATE](https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-generate), [AI.CLASSIFY](https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-classify), [AI.DETECT\_ANOMALIES](https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-detect-anomalies)
