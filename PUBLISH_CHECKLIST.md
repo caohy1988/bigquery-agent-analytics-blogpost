@@ -193,4 +193,4 @@ If it doesn't land, publish as-is — the artifact is cosmetic and shows in both
 - [ ] Submitted for review to Google Cloud Community publication.
 - [ ] DevRel sign-off received.
 - [ ] Editorial notes banners stripped from pasted content (top + bottom blocks between the `EDITORIAL NOTES — NOT PUBLISHABLE` markers).
-- [ ] (Optional) `Span.summary` polish landed and featured trace re-captured.
+- [ ] (Optional) `text: '...'` wrapper polish landed (see section 6) — both section 4's featured trace and section 5's fleet output re-captured from a fresh run.
