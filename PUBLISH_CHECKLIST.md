@@ -164,16 +164,21 @@ LIMIT 50;
 
 ---
 
-## 6. Optional — Span.summary polish before publication
+## 6. Optional — `text: '...'` wrapper polish before publication
 
-Section 4's featured `trace.render()` output shows `text: 'I found three people named Priya...'` in the final `LLM_RESPONSE` line. The `text: '...'` wrapper is an artifact of how the agent's final response comes back — not ideal aesthetics for a reader new to the SDK.
+Two spots in the current draft surface the same Python-repr `text: '...'` wrapper from `content.response`:
 
-This is tracked as a separate SDK PR (pending). If it lands before publication:
+- **Section 4** — the featured `trace.render()` output's final `LLM_RESPONSE` line (renders via `Span.summary`).
+- **Section 5** — the ambiguity-filter output's per-session line (renders via `Trace.final_response`).
 
-1. Re-run the featured session: `python gists/01_client_setup_and_render.py 84ef108d-...`
-2. Swap the updated render output into section 4 of the post.
+Both are fixed by a single SDK PR ([`fix/span-summary-text-prefix`](https://github.com/haiyuan-eng-google/BigQuery-Agent-Analytics-SDK-fork/pull/35)): `_unwrap_text_field()` helper applied in both `Span.summary` (render output) and `Trace.final_response` (fleet-loop output). If it lands before publication:
 
-If it doesn't land, publish as-is — the artifact is cosmetic and doesn't undermine the narrative.
+1. Re-run the featured session capture: `python gists/01_client_setup_and_render.py 84ef108d-...`
+2. Swap the updated render output into section 4.
+3. Re-run the fleet capture: `python gists/02_fleet_level_ambiguity_filter.py`
+4. Swap the updated output block into section 5.
+
+If it doesn't land, publish as-is — the artifact is cosmetic and shows in both sections the same way it does in every current trace.render in production.
 
 ---
 
