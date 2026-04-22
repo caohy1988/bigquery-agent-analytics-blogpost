@@ -5,23 +5,10 @@ EDITORIAL NOTES — NOT PUBLISHABLE. Remove this block before paste to Medium.
 
 Status: Draft with real-data captures from a live run of the
 Calendar-Assistant demo agent against test-project-0728-467323 /
-agent_analytics_demo (location US). All trace IDs, session IDs,
-latencies, LLM outputs, and INFORMATION_SCHEMA numbers in this
-draft are real.
-
-MODEL NAME NOTE: the captures below show `(gemini-2.5-flash)`
-because that is the model the agent actually ran under at capture
-time. The companion demo_calendar_assistant.py now targets
-`gemini-3-flash-preview`; at capture time that model was not yet
-accessible on the sandbox project (404 from Vertex AI) so the
-captures could not be re-taken. The trace shape is model-agnostic
-so the structural story holds, but before publication either (a)
-re-run demo_calendar_assistant.py once the preview model is
-accessible and re-capture the outputs in sections 4 / 5 / 6, or
-(b) revert the demo back to gemini-2.5-flash to match what the
-post shows. Do not silently string-replace the model name in the
-captures; that would contradict the whole point of the real-data
-PR.
+agent_analytics_demo (location US), running Gemini 2.5 Flash via
+Vertex AI. All trace IDs, session IDs, latencies, LLM outputs,
+and INFORMATION_SCHEMA numbers in this draft are real and match
+what demo_calendar_assistant.py produces.
 
 Target publication: Google Cloud Community / The Generator.
 Target length: 1,400-1,800 words (current: ~1,900).
@@ -284,4 +271,3 @@ Do NOT paste the rest of this file into Medium.
 6. **Resolve the primary-CTA URL** — replace the `TBD:` marker in section 7 with the exact plugin quickstart page. The top-level `adk-python` repo root is explicitly not acceptable per issue #53's conversion-goal framing.
 7. **Pull inline code blocks into Gists before publication** — three blocks are flagged inline as `<!-- Gist embed candidate: ... -->`. Create Gists in the SDK owner's account (so the "Open in GitHub" link doubles as an SDK backlink), replace the inline blocks with Medium's Gist embed widget.
 8. **Minor polish in SDK `Span.summary`** — the featured trace output shows `text: '...'` prefix on agent responses (an artifact of the agent payload shape). Tracked as a future SDK polish item; not blocking for this post. If it lands before publication, re-capture section 4 output.
-9. **Model-name reconciliation** — the demo targets `gemini-3-flash-preview` but the captures were taken on `gemini-2.5-flash` (see the MODEL NAME NOTE in the top editorial banner). Before publication, either (a) re-run the demo once `gemini-3-flash-preview` is accessible and re-capture sections 4/5/6, or (b) revert the demo's `model=` field back to `gemini-2.5-flash` so it matches the post. Picking one is required.

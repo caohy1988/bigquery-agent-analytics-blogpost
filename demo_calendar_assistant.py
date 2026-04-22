@@ -147,7 +147,7 @@ root_agent = LlmAgent(
         "matches, tell the user you could not find the contact. Always "
         "confirm bookings by the contact's full name and the meeting time."
     ),
-    model="gemini-3-flash-preview",
+    model="gemini-2.5-flash",
     tools=[search_contacts, get_calendar_availability, book_meeting],
 )
 
