@@ -124,7 +124,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
-      - run: pip install bigquery-agent-analytics
+      # Pin to the first release with the raw-budget --threshold
+      # semantics and the tight --exit-code failure output. Older
+      # 0.2.x versions shipped a normalized score + 0.5 cutoff, which
+      # effectively fires every gate at roughly half the budget.
+      - run: pip install 'bigquery-agent-analytics>=0.3.0,<0.4.0'
       - uses: google-github-actions/auth@v2
         with: { credentials_json: '${{ secrets.GCP_SA_KEY }}' }
       - name: Latency budget
@@ -174,20 +178,29 @@ Twenty-five percent of sessions went over the 50k token budget. The fix on the o
 
 Run the gate commands once against the last 30 days of production traffic, without `--exit-code`, and read the report. A defensible starting point for each threshold: the p95 of the last 30 days plus a 10% buffer. Revisit after week one — any gate that blocks PRs it shouldn't is noise; any gate that lets real regressions through is the wrong number.
 
-For latency-p95 specifically, the SDK's per-session `--threshold` isn't the right shape — it fails any *individual* session that blows the budget, which in tail-heavy distributions is most of them. Use BigQuery directly for percentile math:
+For latency-p95 specifically, the SDK's per-session `--threshold` isn't the right shape — it fails any *individual* session that blows the budget, which in tail-heavy distributions is most of them. Use BigQuery directly for percentile math. `agent_events` doesn't store a pre-computed per-session average, so the query groups by `session_id` first, then takes the p95 over the resulting per-session distribution:
 
 ```bash
 LATENCY_P95=$(bq query --format=csv --nouse_legacy_sql "
-  SELECT APPROX_QUANTILES(avg_latency_ms, 100)[OFFSET(95)]
-  FROM \`${PROJECT_ID}.${DATASET_ID}.agent_events\`
-  WHERE timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 24 HOUR)
-    AND agent = 'calendar_assistant'" | tail -1)
+  WITH per_session AS (
+    SELECT
+      session_id,
+      AVG(CAST(JSON_VALUE(latency_ms, '\$.total_ms') AS FLOAT64)) AS avg_latency_ms
+    FROM \`${PROJECT_ID}.${DATASET_ID}.agent_events\`
+    WHERE timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 24 HOUR)
+      AND agent = 'calendar_assistant'
+    GROUP BY session_id
+  )
+  SELECT APPROX_QUANTILES(avg_latency_ms, 100)[OFFSET(95)] FROM per_session" \
+  | tail -1)
 
 if (( $(echo "$LATENCY_P95 > 5500" | bc -l) )); then
   echo "FAIL latency_p95=${LATENCY_P95}ms budget=5500ms"
   exit 1
 fi
 ```
+
+(The same `JSON_VALUE(latency_ms, '$.total_ms')` extraction is what the SDK's `SESSION_SUMMARY_QUERY` uses under the hood to produce the `avg_latency_ms` field the `--evaluator=latency` gate runs against — so the SQL side and the SDK side stay on the same definition of "per-session latency.")
 
 Your `agent_events` table is the test suite. Some tests are Python. Some are SQL. Both are cheap, both run on every PR, both say pass or fail in under a minute against real production traffic.
 
@@ -269,12 +282,12 @@ Real output against the CI project for one day of PR runs:
 
 ```
 sdk_feature,runs,gb_processed,avg_slot_ms
-evaluate-code,48,0.412,1204
-evaluate-categorical,12,0.097,4820
+eval-code,48,0.412,1204
+eval-categorical,12,0.097,4820
 trace-read,6,0.029,1742
 ```
 
-Forty-eight deterministic runs across a day of PRs (four evaluators × twelve PRs = 48) cost 412 MB total. Twelve categorical runs — the more expensive path because of the model call — cost 97 MB. Trace-read is the developers checking individual failing sessions from the stderr output, same as post #1.
+Forty-eight `eval-code` runs across a day of PRs (four evaluators × twelve PRs = 48) cost 412 MB total. Twelve `eval-categorical` runs — the more expensive path because of the model call — cost 97 MB. `trace-read` is developers pulling individual failing sessions with `client.get_session_trace(...).render()` from post #1, straight off the stderr output.
 
 CI should be a budget line, not a surprise bill. The `sdk_feature` label gives you the pivot to keep it that way — when a new feature ships, you'll see its runs appear in this table, and you'll see what it costs before it matters.
 
@@ -355,11 +368,18 @@ Exact commands for shot #3 are in the "Companion assets" section below.
 
 ## Open items before publish
 
-1. **Screenshots captured.** Section 3 (real FAIL output), section 4 (GHA red/green), section 6 (INFORMATION_SCHEMA). Shots 1 and 5 are design work.
-2. **Workflow file committed to SDK repo.** `examples/ci/evaluate_thresholds.yml` — fork-and-ship ready. The Gist linked in section 7 should match the SDK-repo copy.
-3. **Persistent reference CI run URL.** Section 7's first CTA currently links to a Gist of the YAML; consider also pointing at a live GHA run history so readers can see a red+green pair they didn't author.
-4. **DevRel review.** Same reviewer path as post #1. The post claims a specific behavior change ("raw-budget `--threshold` semantics", "categorical-eval `--exit-code`") that both landed in SDK v0.2.2; double-check version bump + CHANGELOG entries before submission.
-5. **Gists created on the Google Cloud / SDK-owner account.** Four code blocks flagged inline.
-6. **Canonical URL resolved** if co-publishing on the Google Cloud dev blog.
-7. **Primary CTA URL — the Gist for `evaluate_thresholds.yml`.** Section 7 has `TBD:`; resolve to the Gist URL once created.
-8. **Cross-link to post #3 timing.** Section 7 references a future post in the series. Confirm timing with the #51 cadence before publishing — if post #3 is more than 4 weeks out, soften the forward-reference to "a later post" rather than "post #3."
+1. **SDK release with PR #36 + #37 behavior is live on PyPI.** The workflow pins
+   `bigquery-agent-analytics>=0.3.0,<0.4.0` — that's the first release that
+   contains the raw-budget `--threshold` semantics and the `categorical-eval
+   --exit-code` flag family the draft demos. Confirm the actual version number
+   at release time and update the pin + any accompanying prose if it ships as
+   `0.2.2`, `0.3.1`, etc. instead of `0.3.0`. Do **not** publish while the
+   commands demonstrated here aren't reachable via a plain `pip install`.
+2. **Screenshots captured.** Section 3 (real FAIL output), section 4 (GHA red/green), section 6 (INFORMATION_SCHEMA). Shots 1 and 5 are design work.
+3. **Workflow file committed to SDK repo.** `examples/ci/evaluate_thresholds.yml` — fork-and-ship ready. The Gist linked in section 7 should match the SDK-repo copy.
+4. **Persistent reference CI run URL.** Section 7's first CTA currently links to a Gist of the YAML; consider also pointing at a live GHA run history so readers can see a red+green pair they didn't author.
+5. **DevRel review.** Same reviewer path as post #1.
+6. **Gists created on the Google Cloud / SDK-owner account.** Four code blocks flagged inline.
+7. **Canonical URL resolved** if co-publishing on the Google Cloud dev blog.
+8. **Primary CTA URL — the Gist for `evaluate_thresholds.yml`.** Section 7 has `TBD:`; resolve to the Gist URL once created.
+9. **Cross-link to post #3 timing.** Section 7 references a future post in the series. Confirm timing with the #51 cadence before publishing — if post #3 is more than 4 weeks out, soften the forward-reference to "a later post" rather than "post #3."
